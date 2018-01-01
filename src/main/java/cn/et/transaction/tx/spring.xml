@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:p="http://www.springframework.org/schema/p"
+    xmlns:context="http://www.springframework.org/schema/context"
+    xmlns:aop="http://www.springframework.org/schema/aop"
+    xmlns:tx="http://www.springframework.org/schema/tx"
+    xsi:schemaLocation="
+    http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+    http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+    http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop.xsd
+    http://www.springframework.org/schema/tx
+    http://www.springframework.org/schema/tx/spring-tx-4.3.xsd   
+    ">
+    <context:property-placeholder location="cn/et/transaction/tx/jdbc.properties"/>
+    <context:component-scan base-package="cn.et.transaction.tx"></context:component-scan>
+    <!-- 使用p命名空间简化di依赖注入 -->
+	<bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource"
+		p:url="${url}"
+		p:username="${user}"
+		p:password="${password}"
+		p:driverClassName="${driver}"
+		>
+	</bean>
+	<bean id="JdbcTemplate"  class="org.springframework.jdbc.core.JdbcTemplate" autowire="byType"></bean>
+    
+    <!--  配置事务管理器类 （声明式的事务） -->
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource"></property>
+	</bean>
+    <!-- 配置tx标签配置的拦截器代理 -->
+	<tx:advice id="txAdvice" transaction-manager="transactionManager">
+		<!-- 定义对每个方法的事务控制属性 -->
+		<tx:attributes>
+			<!-- 事务的传播性
+			所谓事务的传播行为是指，如果在开始当前事务之前，
+			一个事务上下文已经存在，此时有若干选项可以指定一个事务性方法的执行行为。
+			在propagation属性中中包括了如下几个表示传播行为的值
+				- REQUIRED       如果当前存在事务，则加入该事务，如果当前没有事务，就新建一个事务。这是最常见的选择。
+				- REQUIRES_NEW   创建一个新的事务，如果当前存在事务，则把当前事务挂起
+				- SUPPORTS		   如果当前存在事务，则加入该事务，如果当前没有事务，就以非事务方式执行
+				- MANDATORY		   如果当前存在事务，则加入该事务，如果当前没有事务，就抛出异常
+				- NOT_SUPPORTED  以非事务方式运行，如果当前存在事务，则把当前事务挂起。
+				- NEVER			   以非事务方式运行，如果当前存在事务，则抛出异常。
+				- NESTED		如果当前存在事务，则创建一个事务作为当前事务的嵌套事务来运行；如果当前没有事务，则按REQUIRED属性执行。它使用了一个单独的事务，这个事务拥有多个可以回滚的保存点。内部事务的回滚不会对外部事务造成影响。它只对DataSourceTransactionManager事务管理器起效。
+			 -->
+			<tx:method name="send*" propagation="REQUIRED" isolation="DEFAULT" rollback-for="java.lang.Exception"/>
+			<tx:method name="save*" propagation="REQUIRED"/>
+			<!-- 	<tx:method name="draw*" propagation="REQUIRES_NEW"/> -->
+			<!--剩下的不访问   <tx:method name="*" read-only="false"/> -->
+		</tx:attributes>
+	</tx:advice>
+	
+    <aop:config>
+    <!-- 定义监听的切入点 -->
+    	<aop:pointcut expression="execution(* cn.*..*.tx.service.*.*(..))" id="pointcut"/>
+    	<!-- 切面的定义  引入的ref是事务的代理 -->
+    	<aop:advisor advice-ref="txAdvice" pointcut-ref="pointcut"/>
+    </aop:config>  
+</beans>
